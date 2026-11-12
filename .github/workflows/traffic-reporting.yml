@@ -30,14 +30,27 @@ jobs:
           GH_TOKEN: ${{ secrets.REPORTING_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          # Fetch page views for the last 14 days
+          set -euo pipefail
+
+          # Fail early with a clear message instead of letting gh fail with an empty token.
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "::error::REPORTING_TOKEN is missing or empty. Configure it in Repository Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+          # Verify the token can authenticate without printing the token or user details.
+          if ! gh api user --jq .login >/dev/null; then
+            echo "::error::REPORTING_TOKEN is invalid, expired, or unavailable to this workflow."
+            exit 1
+          fi
+
           echo "Fetching traffic statistics for ${REPO}..."
 
-          # Get views data
+          # Get views data (GitHub returns the available traffic history, up to 14 days).
           VIEWS_DATA=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${REPO}/traffic/views)
+            "/repos/${REPO}/traffic/views")
 
           echo "Views data retrieved successfully"
           echo "$VIEWS_DATA" | jq '.'
